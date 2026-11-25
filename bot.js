@@ -10,10 +10,18 @@ if (!process.env.BOT_TOKEN) {
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
+// Лог входящих сообщений (помогает понять, что видит бот)
+bot.use(async (ctx, next) => {
+  const text = ctx.message?.text || ctx.callbackQuery?.data || "";
+  console.log(`[update] chat=${ctx.chat?.id} type=${ctx.chat?.type} from=${ctx.from?.id} text=${text.slice(0, 60)}`);
+  return next();
+});
+
 const sessions = new Map();
 const polls = new Map();
 
-let groupChatId = null;
+// ID группы можно задать через переменную Railway GROUP_CHAT_ID (переживает перезапуски)
+let groupChatId = process.env.GROUP_CHAT_ID ? Number(process.env.GROUP_CHAT_ID) : null;
 
 // Экранирование HTML
 function escapeHTML(text) {
@@ -203,9 +211,12 @@ bot.command("setgroup", async (ctx) => {
     }
 
     groupChatId = ctx.chat.id;
+    console.log("GROUP_CHAT_ID =", groupChatId);
 
     await ctx.reply(
-      "✅ Группа сохранена!\nТеперь можешь создавать опросы в личке и публиковать их здесь."
+      `✅ Группа сохранена!\nID группы: ${groupChatId}\n` +
+      "Чтобы это пережило перезапуск, добавь переменную GROUP_CHAT_ID в Railway.\n" +
+      "Теперь можешь создавать опросы в личке и публиковать их здесь."
     );
   } catch (error) {
     console.error(error);
@@ -401,6 +412,8 @@ bot.on("text", async (ctx) => {
     await finishPoll(ctx, session);
   }
 });
+
+bot.catch((error) => console.error("Ошибка бота:", error));
 
 // Запуск
 bot.launch()
